@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+ 
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>hs2bf commentary</title> 
+<link rel="stylesheet" type="text/css" href="http://www.xanxys.net/common.css"/> 
+<style type="text/css">
+pre.code{
+    border: 1px dashed gray;
+    padding: 1em;
+    font-family: "monospace";
+    background-color: #f0f0ff;
+}
+
+span.code{
+    font-family: "monospace";
+}
+
+h1{
+    border-bottom: 1px solid black;
+}
+
+h2{
+    font-size:150%
+}
+
+h3{
+    color:black;
+    font-size: 120%;
+}
+
+</style>
+</head> 
+ 
+ 
+ 
+<body>
+
+<!-- header -->
+<div class="header">
+<a href="/">xanxys.net</a> / hs2bf
+</div>
+
+<h1>Introduction</h1>
+hs2bf is a <a href="http://haskell.org/">haskell</a> to <a href="http://en.wikipedia.org/wiki/Brainfuck">brainfuck</a> compiler. I believe this is the first attempt to write
+a compiler that can translate a high-level language such as Haskell to brainfuck.
+
+You can download it from <a href="http://hackage.haskell.org/package/hs2bf">hackageDB - hs2bf</a>.
+
+
+<h1>Supported Code</h1>
+<h2>Limitation</h2>
+no type inference / type annotation: The only primitive type is Byte.<br/>
+
+<h2>I/O</h2>
+hs2bf uses special data structure E to represent behavior of an arbitrary brainfuck program.
+
+<pre class="code">
+data E=Input (Char -> E)
+      |Output Char E
+      |Halt
+
+main :: E
+</pre>
+
+<h2>Examples</h2>
+
+echo:
+<pre class="code">
+main=Input (\x->Output x main)
+</pre>
+
+hello world:
+<pre class="code">
+main=outputStr Halt "Hello World!"
+
+outputStr k []=k
+outputStr k (x:xs)=Output x (outputStr k xs)
+</pre>
+
+quicksort:
+<pre class="code">
+main=outputStr Halt (qsort "etsb")
+
+qsort []=[]
+qsort (x:xs)=qsort (filter (gtByte x) xs)++[x]++qsort (filter (leByte x) xs)
+
+outputStr k []=k
+outputStr k (x:xs)=Output x (outputStr k xs)
+</pre>
+
+<p>
+As you can see, hs2bf supports very powerful subset of Haskell98 syntax.
+</p>
+
+<p>
+You can find more examples in <a href="http://www.xanxys.net/public/hs2bf-0.5-test.tar.bz2">hs2bf-0.5-test.tar.bz2</a>
+(Actually, these files were used for automated regression testing)
+</p>
+
+<h1>Overall structure</h1>
+(stub)<br/>
+
+3 intermidiate languages, namely Core, GM(G-machine) and SAM(sequntial access machine) are used during compilation.
+And GM and SAM have interpreters for debugging.
+
+<h2>Haskell parser</h2>
+<a href="http://hackage.haskell.org/package/haskell-src">haskell-src</a> library is used to parse Haskell code.
+
+<h2>Core language</h2>
+... is something like this:
+<pre class="code">
+outputStr #a0 #a1=
+    case ((XT2 #a0) #a1) of
+        XT2 #xa #xb ->
+            let
+                k = #xa
+            in
+                case #xb of
+                    XCons   ->
+                        let
+                            k = #xa
+                        in
+                            case #xb of
+                                XCons #xa #xb ->
+                                    let
+                                        x = #xa
+                                    in
+                                        let
+                                            xs = #xb
+                                        in
+                                            ((Output x) ((outputStr k) xs))
+                    XNil ->
+                        k
+</pre>
+
+<h2>G-machine</h2>
+reference:
+<a href="http://research.microsoft.com/en-us/um/people/simonpj/papers/slpj-book-1987/">The Implementation of Functional Programming Languages</a>
+<br/>
+
+GM code looks like:
+<pre class="code">
+XT2:
+    PushArg 2
+    PushArg 2
+    Pack 0 2
+    Slide 3
+</pre>
+
+You should read the paper by SPJ if you haven't.
+
+<h2>Sequential Access Machine</h2>
+<p>
+This is like an assembly language w/o absolute addressing.
+</p>
+
+<p>
+Its code consists of procedures which can take fixed number of
+arguments.
+
+Its state consists of named memory regions and fixed number of registers,
+and a pointer shared among the memory regions.
+</p>
+
+Operands of SAM instruction can be either:
+<ol>
+<li>relative pointer in specified memory region</li>
+<li>a register</li>
+</ol>
+
+<p>
+Registers can be allocated and deallocated dynamically but they can't
+be passed across scopes(like variables in C). This pseudo "deallocation" is
+implemented to ease code generation.
+</p>
+
+<pre class="code">
+S0 H0
+
+pr #heapRef/addr
+    val addr -1
+    while addr
+        val addr -1
+        alloc cnt
+        copy $H0 cnt
+        while cnt
+            val cnt -1
+            locate 1
+        delete cnt
+</pre>
+
+<p>
+The first line "S0 H0" declares memory regions which are available throughout the code.
+</p>
+
+<p>
+"pr #heapRef/addr" defined a procedure "#heapRef" which takes one argument "addr".
+</p>
+
+<p>
+"val addr -1" decrements the value of addr modulo 256.
+</p>
+
+<p>
+"locate 1" moves the current pointer forward by one, and this will affect
+memory reference like "$H0".
+</p>
+ 
+
+
+<h1>Runtime System</h1>
+
+<h2>Memory Layout</h2>
+
+
+<h3>Basic Mechanism</h3>
+<p>
+Raw brainfuck memory space is <span class="code">Nat->Byte</span>.
+So you can combine N such memory spaces <span class="code">[Nat->Byte]</span> by interleaving them.
+</p>
+
+<p>
+In addition to this, you'll need registers to carry values around since brainfuck doesn't support absolute
+addressing. If you want M registers, you can create N+M memory spaces with the previous method and
+move values in M memory spaces everytime you modify the pointer.
+</p>
+
+
+
+
+<h3>Actual Implementation</h3>
+<img src="memory.png" alt="memory mapping"/>
+
+<p>
+As of now, hs2bf uses 3 memory spaces S0,H0 and H1. S0 is used for stack of heap node ids,
+and H0 and H1 are two heaps in a copying garbage collection.
+</p>
+
+<p>
+A node is a variable size structure which ids starting from 1. Address 0 of the stack is marked 0,
+so it is always possible to return to address 0 wherever you are.
+</p>
+
+heap node structure:
+<pre>
+1B: node size
+1B: "reachable" flag (for garbage collection, 0 means unreachable from the root, 1 means otherwise)
+1B: node type
+*B: payload
+1B: node id
+1B: node size
+</pre>
+
+
+
+<h2>State Machine</h2>
+<img src="states.png" alt="finite state machine"/><br/>
+
+Since you can't "call" a function, the procedure call is represented by one huge "dispatch" sentence
+which encompasses all procedures.
+
+
+
+
+<h1>brainfuck specific techniques</h1>
+
+<h2>"if" sentence</h2>
+<p>
+"if v>0 then XXX" is easily realized by <span class="code">[[-]XXX]</span>, assuming v is currently referred by
+the pointer.
+</p>
+
+<p>
+A little bit diffucult problem is "if v==0 then XXX", and this can be done through negation.
+For example, let a temporary variable u be 1, and execute "if v>0 then u--; if u>0 then XXX".
+</p>
+
+
+
+
+
+
+<h2>comparison of numbers</h2>
+Suppose you have two numbers <span class="code">x,y :: Byte</span>, and you want to compare them.
+
+<h3>equality</h3>
+Decrement both x and y until x becomes 0, and check if y is 0.
+
+<h3>oredering</h3>
+If there's a way to subtract <span class="code">min x y</span> from <span class="code">x,y</span>,
+then you can tell which one's larger than (or equal to) the other. 
+
+So the problem of comparing two numbers is reduced to logical operations which can be done by nested if.
+But there's a more complex and faster way.
+
+
+<h2>expansion of "switch" sentence in SAM</h2>
+The following code:
+<pre class="code">
+dispatch f
+    0
+        X
+    1
+        Y
+    2
+        Z
+</pre>
+
+can be expanded to:
+<pre class="code">
+clr 1 t
+while f
+    val 1 f -1
+    dispatch f
+        0
+            Y
+        1
+            Z
+    clr 1 t
+    val 1 t +1
+while t
+    X
+    clr 1 t
+</pre>
+
+and to:
+<pre class="code">
+clr 1 t
+while f
+    val 1 f -1
+    clr 1 t
+    while f
+        val 1 f -1
+        Z
+        clr 1 t
+        val 1 t +1
+    while t
+        Y
+        clr 1 t
+    clr 1 t
+    val 1 t +1
+while t
+    X
+    clr 1 t
+</pre>
+
+This expansion method can be applied recursively.
+
+
+<h2>addition w/ carry</h2>
+eg. Addition of x,y::Byte.
+if x &lt; x+y &amp;&amp; y &lt; x+y, then there's no carry.
+
+
+
+<h1>Other Reference</h1>
+You can read the comment in the source code, or <a href="http://d.hatena.ne.jp/xanxys/archive">my blog</a>(in japanese).
+
+
+
+
+
+
+<!-- footer -->
+<div class="footer" style="margin-top:1em">
+    
+</div>
+
+<!-- google analytics -->
+<script type="text/javascript">
+var _gaq = _gaq || [];
+_gaq.push(['_setAccount', 'UA-12349632-2']);
+_gaq.push(['_trackPageview']);
+(function() {
+var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+})();
+</script>
+
+</body>
+</html>

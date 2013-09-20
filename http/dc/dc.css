@@ -1,0 +1,121 @@
+/* block layout */
+body{
+    height: 80%;
+}
+
+nav{
+    display: block;
+    float: left;
+
+    width: 10%;
+}
+
+.main{
+
+}
+
+article{
+    overflow: scroll;
+    background-color: #e3e0e0;
+    
+    width: 70%;
+    margin-left: 13%;
+    border-left: 0.5em solid black;
+    border-right: 0.5em solid black;
+    padding-right: 0.5em;
+    padding: 0.5em;
+    
+    line-height: 1.8em;
+}
+
+article h1 span{
+    float:right;
+}
+
+/* global style */
+h1{
+    font-size: 150%;
+}
+
+h2{
+    font-size: 110%;
+}
+
+h3{
+    color: black;
+    font-size: 100%;
+}
+
+
+/* index style */
+nav h1{
+    font-size: 100%;
+}
+
+nav ul{
+    padding-top: 0em;
+    padding-left: 0px;
+}
+
+nav ul li{
+    margin-top: 0.2em;
+    padding-left: 0em;
+}
+
+/* title */
+article > h1{
+    font-size: 200%;
+}
+
+article > span{
+    display:block;
+    text-align: right;
+    font-weight: bold;
+}
+    
+
+/* main style */
+section.chapter h1{
+    font-size: 200%;
+    border-left: solid 1.3em black;
+    border-bottom: 1px solid black;
+    
+    margin-top: 4em;
+    margin-bottom: 0.5em;
+    
+    padding-top: 0.1em;
+    padding-left: 0.3em;
+    padding-bottom: 0.3em;
+}
+
+section.chapter h2{
+    margin-top: 1em;
+    
+    font-size: 150%;
+    border-bottom: 1px dashed black;
+}
+
+section.chapter h3{
+    margin-top: 2em;
+    font-size: 110%;
+}
+
+article li{
+    border-left: 1em #aab solid;
+}
+
+/* markup */
+.dialog{
+    color: #1aa;
+    font-weight: bold;
+    margin: 0.5em;
+}
+
+.noun{
+    color: #12a;
+}
+
+.idea{
+    color: #a21;
+}
+

@@ -1,0 +1,82 @@
+/* header and footer (symmetric) */
+.header{
+    border-bottom: solid 5px;
+}
+
+.footer{
+    clear: both;
+    border-top: solid 5px;
+}
+
+/* body */
+div.profile{
+    background: #ccccdd;
+    margin: 1em;
+    padding: 10px;
+    
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+}
+
+div.project_group{
+    padding-left: 20px;
+    border-left: solid 5px;
+}
+
+div.project_summary{
+    background: #bbccbb;
+    margin: 1em;
+    padding: 10px;
+    
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+}
+
+.project_tag{
+    position: absolute;
+    font-size:150%;
+    font-weight: bold;
+    color: gray;
+    
+    -webkit-transform: rotate(90deg);
+    -webkit-transform-origin: 0% 10%;
+
+    -moz-transform: rotate(90deg);
+    -moz-transform-origin: 0% 10%;
+}
+
+.date{
+    font-size: 80%;
+    margin: 0.5em;
+    color: gray;
+}
+
+h2{
+    font-size:200%;
+}
+
+h3{
+    color: white;
+    font-size: 150%;
+    margin: 0;
+    margin-bottom: 0.5em;
+}
+
+a{
+    color: black
+}
+
+/* virtual marker with border line */
+ul{
+    padding-left: 2em;
+    list-style-type: none;
+    margin-bottom: 0.5em;
+}
+
+ul > li{
+    border-left: 0.5em solid white;
+    padding-left: 0.5em;
+    margin-bottom: 6px;
+}
+
+

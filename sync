@@ -1,0 +1,9 @@
+#!/bin/env fish
+
+echo "syncing www.xanxys.net"
+s3cmd sync --acl-public http/ s3://www.xanxys.net
+# s3cmd setacl --acl-public --recursive s3://www.xanxys.net
+
+# echo "syncing www.paraether.org"
+# rsync -avz --group=content -e ssh http-pe/* www.xanxys.net:/srv/http-pe/
+
