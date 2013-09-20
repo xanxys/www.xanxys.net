@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>TOTP Generator</title>
+		<link rel="stylesheet" type="text/css" href="/common.css">
+		<script src="base32.js"></script>
+		<script src="qrcode.js"></script>
+	</head>
+	<body>
+		<div class="header">
+		<a href="/">xanxys.net</a>
+		 / TOTP Generator
+		</div>
+
+		<h2>What's this?</h2>
+		This site generates HOTP (HMAC-based One Time Password) QR code completely in your browser (you can check source to verify it).
+
+		<h2>Account Information</h2>
+		Issuer Name: <input id="issuer" placeholder="Hoge Group" type="text"></input>
+		Account Name: <input id="account" placeholder="foo@example.com" type="text"></input>
+		
+		<h2>QR Code</h2>
+		<div id="qr"></div>
+		
+		<h2>Text Config</h2>
+		Type these if you can't read QR code:
+		<ul>
+			<li>Secret key (base32): <span id="secret_base32"></span></li>
+			<li>Type: Time Based</li>
+		</ul>
+		
+		Details (for the curious):
+		<ul>
+			<li>Period: 30 sec</li>
+			<li>Digits: 6</li>
+		</ul>
+		
+		<!--
+		Values in other formats:
+		<ul>
+			<li>Secret key(hex): <span id="secret_hex"></span></li>
+		</ul>
+		-->
+
+		
+		<h2>Technical References</h2>
+		<ul>
+			<li>
+				<a href="http://tools.ietf.org/html/rfc6238">TOTP: Time-Based One-Time Password Algorithm (RFC 6238)</a>
+			</li>
+			<li>
+				<a href="http://tools.ietf.org/html/rfc4226">HOTP: An HMAC-Based One-Time Password Algorithm (RFC 4226)</a>
+			</li>
+			<li>
+				<a href="https://code.google.com/p/google-authenticator/wiki/KeyUriFormat">google-authenticator: KeyUriFormat</a>
+			</li>
+			<li>
+				<a href="http://www.nongnu.org/oath-toolkit/oathtool.1.html">OATH Tool</a>
+			</li>
+		</ul>
+		
+		<script>
+			"use strict";
+			
+			var prev_issuer = null;
+			var prev_account = null;
+			var qrcode = null;
+			
+			// Insert whitespace every 4 letters.
+			function insert_spaces(str) {
+				var str_sp = '';
+				var is_first = true;
+				while(str.length > 0) {
+					if(!is_first) {
+						str_sp += ' ';
+					}
+					str_sp += str.slice(0, 4);
+					str = str.slice(4);
+					is_first = false;
+				}
+				return str_sp;
+			}
+			
+			function refresh() {
+				// Get parameters.
+				var secret = new Uint8Array(20);
+				window.crypto.getRandomValues(secret);
+				
+				var issuer = document.getElementById("issuer").value;
+				var account = document.getElementById("account").value;
+				
+				// Don't update info when there's no change.
+				if(issuer === prev_issuer && account === prev_account) {
+					return;
+				} else {
+					prev_issuer = issuer;
+					prev_account = account;
+				}
+				
+				// Display info.
+				document.getElementById("secret_base32").innerHTML = insert_spaces(base32.encode(secret));
+				// document.getElementById("secret_hex").innerHTML = insert_spaces(secret_b32);
+				
+				var uri = "otpauth://totp/" + encodeURIComponent(issuer + ":" + account) + "?secret=" + base32.encode(secret) + "&issuer=" + encodeURIComponent(issuer);
+				if(qrcode === null) {
+					qrcode = new QRCode(document.getElementById("qr"), uri);
+				} else {
+					qrcode.makeCode(uri);
+				}
+			}
+			
+			setInterval(refresh, 100);
+		</script>
+		
+		<div class="footer">
+		</div>
+	</body>
+</html>
