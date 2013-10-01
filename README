@@ -1,0 +1,8 @@
+The whole site is provisioned with git, except for /public.
+
+/public is add-only blob store, and its master data is on AWS S3.
+Files inside public shouldn't be deleted, modified. And they should not
+be included in git; Avoid putting text or source code without version specifier.
+
+Other part of the site is considered mutable, and managed by git (master is
+bitbucket).
