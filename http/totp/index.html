@@ -35,12 +35,11 @@
 			<li>Digits: 6</li>
 		</ul>
 		
-		<!--
 		Values in other formats:
 		<ul>
-			<li>Secret key(hex): <span id="secret_hex"></span></li>
+			<li>Secret key(hex string): <span id="secret_hex"></span></li>
+			<li>Secret key(hex array): <span id="secret_hex_array"></span></li>
 		</ul>
-		-->
 
 		
 		<h2>Technical References</h2>
@@ -80,6 +79,34 @@
 				}
 				return str_sp;
 			}
+
+			// return :: string (e.g. "ab23af3a")
+			function to_hex_string(array) {
+				var table = '0123456789abcdef';
+
+				var result = '';
+				for(var i = 0; i < array.length; i++) {
+					result += table[array[i] >> 4] + table[array[i] & 0xf];
+				}
+
+				return result;
+			}
+
+			// return :: string (e.g. [0x12, 0x43, 0x11, 0xab])
+			function to_hex_array(array) {
+				var table = '0123456789abcdef';
+
+				var result = '[';
+				for(var i = 0; i < array.length; i++) {
+					result += '0x' + table[array[i] >> 4] + table[array[i] & 0xf];
+					if(i != array.length -1) {
+						result += ', ';
+					}
+				}
+				result += ']';
+
+				return result;
+			}
 			
 			function refresh() {
 				// Get parameters.
@@ -99,7 +126,8 @@
 				
 				// Display info.
 				document.getElementById("secret_base32").innerHTML = insert_spaces(base32.encode(secret));
-				// document.getElementById("secret_hex").innerHTML = insert_spaces(secret_b32);
+				document.getElementById("secret_hex").innerHTML = to_hex_string(secret);
+				document.getElementById("secret_hex_array").innerHTML = to_hex_array(secret);
 				
 				var uri = "otpauth://totp/" + encodeURIComponent(issuer + ":" + account) + "?secret=" + base32.encode(secret) + "&issuer=" + encodeURIComponent(issuer);
 				if(qrcode === null) {
