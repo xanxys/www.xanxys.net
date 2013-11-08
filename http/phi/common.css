@@ -1,0 +1,71 @@
+@import url(http://fonts.googleapis.com/css?family=Wire+One);
+@import url(http://fonts.googleapis.com/css?family=Share+Tech);
+@import url(http://fonts.googleapis.com/css?family=Rationale);
+@font-face {
+  font-family:'mplus-1c-black';
+  src: url('mplus-1c-black-sub.woff') format('woff');
+}
+body {
+	margin: 0;
+}
+.dialog {
+	
+	font-family: 'mplus-1c-black';
+	font-size: 110%;
+	position: absolute;
+	background-color: rgba(255, 255, 255, 0.8);
+	border-radius: 1px;
+	
+	left: 40%;
+	width: 20%;
+	top: 30%;
+	height: 240px;
+	padding: 10px;
+	overflow: hidden;
+}
+.dialog .note {
+	color:#555;
+	font-size: 80%;
+}
+#ui_dnd {
+	font-family: sans-serif;
+	width: 180px; 
+	height: 80px; 
+	border: 2px dashed #666;
+	padding: 10px;
+	text-align: center;
+	background-image: url("schematic_cuboid.png");
+}
+.dialog img {
+	border: 1px solid #666;
+	width: 100px;
+}
+.dialog img:hover {
+	border: 1px solid orange;
+}
+.panel {
+	font-family: 'Share Tech', sans-serif;
+	font-size: 110%;
+	position: absolute;
+	background-color: rgba(255, 255, 255, 0.8);
+	padding: 10px;
+	overflow: auto;
+	width: 250px;
+	height: 140px;
+}
+.panel label {
+	display: block;
+}
+.panel h3 {
+	margin-bottom: 0;
+}
+.panel button {
+	width: 150px;
+	height: 40px;
+	border: darkgray solid 4px;
+	background-color: rgba(255, 255, 255, 0.8);
+	font-size: 100%;
+}
+.panel button:hover {
+	background-color: rgba(255, 130, 0, 0.8);
+}
