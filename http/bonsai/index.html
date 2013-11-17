@@ -1,19 +1,18 @@
 <!doctype html>
 <html>
 	<head>
-		<title>Bonsai Visualizer</title>
+		<title>Bonsai</title>
 
 		<link href="./common.css" rel="stylesheet" type="text/css"/>
 		<link rel="icon" href="./favicon.png" type="image/png"/>
-		<link href='http://fonts.googleapis.com/css?family=Clicker+Script' rel='stylesheet' type='text/css'/>
 
-		<script src="./underscore-min.js"></script>
-		<script src="./underscore.string.min.js"></script>
-		<script src="./jquery-2.0.3.min.js"></script>
-		<script src="./three.min.js"></script>
-		<script src="./optimer_regular.typeface.js"></script>
-		<script src="./stats.min.js"></script>
-		<script src="./spin.min.js"></script>
+		<script src="script/underscore.js"></script>
+		<script src="script/underscore.string.min.js"></script>
+		<script src="script/typeface-0.15.js"></script>
+		<script src="script/optimer_regular.typeface.js"></script>
+		<script src="script/stats.min.js"></script>
+
+		<script data-main="script/visualize" src="script/require.js"></script>
 	</head>
 	<body>
 		<div class="pane-top-left" style="width: 200px; position:absolute">
@@ -23,60 +22,35 @@
 			</div>
 
 			<div class="pane-panel">
-				<button onclick="handle_replant()">Replant</button>
-				<button onclick="handle_step(1)">+1 day</button>
-				<button onclick="handle_step(10)">+10 day</button>
-				<label>
-					<span style="font-size: 75%">darkness - 2x direct sun</span>
-					<input oninput="handle_light_change()" id="light_flux" type="range" min="0" max="2000" value="1000"/>
-				</label>
-				
+				<h1>Time</h1>
+				<button id="button_step1">+1 T</button>
+				<button id="button_step10">+10 T</button>
+				<button id="button_step50">+50 T</button>
 			</div>
 
 			<div class="pane-panel">
-				<div>Plant Stats</div>
+				<h1>Plant Stats</h1>
 				<pre id="info"></pre>
 			</div>
 
 			<div class="pane-panel">
-				<div>Execution Stats</div>
-				<pre id="info-sim"></pre>
+				<h1>Chunk Stats</h1>
+				<pre id="info-chunk"></pre>
 			</div>
 
 			<div class="pane-panel">
-				<div>Debug Layers</div>
-				<label>
-					<input type="checkbox" id="debug_occluder" onclick="handle_update_debug_options()">
-					Occluders
-				</label>
-				<label>
-					<input type="checkbox" id="debug_light_volume" onclick="handle_update_debug_options()">
-					Light Volume
-				</label>
+				<h1>Execution Stats</h1>
+				<pre id="info-sim"></pre>
 			</div>
 		</div>
 
-		<script src="./TrackballControls.js"></script>
-		<script src="./visualize.js"></script>
+		<div id="main"></div>
 
 		<hr/>
 		<div>
 		Licenses
 			<ul>
-				<li>CC-BY 3.0: http://seamless-pixels.blogspot.jp/p/free-seamless-ground-textures.html</li>
 			</ul>
 		</div>
-
-		<!-- google analytics -->
-		<script>
-		(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-		(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-		m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-		})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-
-		ga('create', 'UA-12349632-2', 'xanxys.net');
-		ga('send', 'pageview');
-
-		</script>
 	</body>
 </html>
