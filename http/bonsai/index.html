@@ -11,8 +11,11 @@
 		<script src="script/typeface-0.15.js"></script>
 		<script src="script/optimer_regular.typeface.js"></script>
 		<script src="script/stats.min.js"></script>
-
-		<script data-main="script/visualize" src="script/require.js"></script>
+		<script src="script/three.js"></script>
+		<script src="script/TrackballControls.js"></script>
+		<script src="script/chunk.js"></script>
+		<script src="script/jquery.js"></script>
+		<script src="script/bonsai.js"></script>
 	</head>
 	<body>
 		<div class="pane-top-left" style="width: 200px; position:absolute">
@@ -23,6 +26,9 @@
 
 			<div class="pane-panel">
 				<h1>Time</h1>
+				<button id="button_play">&#x25b6;</button>
+				<br/>
+				
 				<button id="button_step1">+1 T</button>
 				<button id="button_step10">+10 T</button>
 				<button id="button_step50">+50 T</button>
@@ -30,7 +36,7 @@
 
 			<div class="pane-panel">
 				<h1>Plant Stats</h1>
-				<pre id="info"></pre>
+				<pre id="info-plant"></pre>
 			</div>
 
 			<div class="pane-panel">
@@ -39,7 +45,7 @@
 			</div>
 
 			<div class="pane-panel">
-				<h1>Execution Stats</h1>
+				<h1>Simulation Stats</h1>
 				<pre id="info-sim"></pre>
 			</div>
 		</div>
