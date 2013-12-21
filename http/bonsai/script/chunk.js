@@ -12,7 +12,12 @@ var CellType = {
 	LEAF: 1,
 	SHOOT: 2,
 	SHOOT_END: 3,  // Corresponds to shoot apical meristem
-	FLOWER: 4  // self-pollinating, seed-dispersing
+	FLOWER: 4,  // self-pollinating, seed-dispersing
+
+	// This is not cell type
+	GROWTH_FACTOR: 5,
+	ANTI_GROWTH_FACTOR: 6,
+	HALF: 7
 };
 
 var convertCellTypeToKey = function(type) {
@@ -43,6 +48,110 @@ var convertCellTypeToColor = function(type) {
 	}
 };
 
+var Differentiation = {
+	SHOOT_MAIN: 1,
+	SHOOT_SUB: 2,
+	LEAF: 3,
+};
+
+
+var Genome = function() {
+	this.discrete = [
+		{
+			"tracer_desc": "Produce leaf.",
+			"when": [
+				CellType.SHOOT_END, CellType.GROWTH_FACTOR, CellType.HALF, CellType.HALF, CellType.HALF],
+			"become": CellType.SHOOT,
+			"produce": [
+				Differentiation.SHOOT_MAIN,
+				Differentiation.LEAF,
+			]
+		},
+		{
+			"tracer_desc": "Produce branch.",
+			"when": [
+				CellType.SHOOT_END, CellType.GROWTH_FACTOR, CellType.HALF, CellType.HALF],
+			"become": CellType.SHOOT,
+			"produce": [
+				Differentiation.SHOOT_MAIN,
+				Differentiation.SHOOT_SUB,
+			],
+		},
+		{
+			"tracer_desc": "Stop growing and change to flower.",
+			"become": CellType.FLOWER,
+			"when": [
+				CellType.SHOOT_END, CellType.ANTI_GROWTH_FACTOR, CellType.HALF, CellType.HALF],
+			"produce": [],
+		},
+	];
+};
+
+// Clone "naturally" with mutations.
+// Since real bio is too complex, use a simple rule that can
+// diffuse into all states.
+// return :: Genome
+Genome.prototype.naturalClone = function() {
+	var _this = this;
+
+	var genome = new Genome();
+	genome.discrete = this._shuffle(this.discrete,
+		function(gene) {
+			return _this._naturalCloneGene(gene, '');
+		},
+		function(gene) {
+			return _this._naturalCloneGene(gene, '/Duplicated/');
+		});
+	return genome;
+};
+
+// flag :: A text to attach to description tracer.
+// return :: Genome.gene
+Genome.prototype._naturalCloneGene = function(gene_old, flag) {
+	var _this = this;
+
+	var gene = {};
+	
+	gene["when"] = this._shuffle(gene_old["when"],
+		function(ix) { return _this._naturalCloneId(ix); },
+		function(ix) { return _this._naturalCloneId(ix); });
+	gene["become"] = this._naturalCloneId(gene_old["become"]);
+	gene["produce"] = this._shuffle(gene_old["produce"],
+		function(ix_to) { return _this._naturalCloneId(ix_to); },
+		function(ix_to) { return _this._naturalCloneId(ix_to); });
+
+	gene["tracer_desc"] = flag + gene_old["tracer_desc"];
+	return gene;
+};
+
+Genome.prototype._naturalCloneId = function(id) {
+	if(Math.random() > 0.01) {
+		return id;
+	} else {
+		return Math.floor(Math.random() * 10);
+	}
+};
+
+Genome.prototype._shuffle = function(array, modifier_normal, modifier_dup) {
+	var result = [];
+
+	// 1st pass: Copy with occasional misses.
+	_.each(array, function(elem) {
+		if(Math.random() > 0.01) {
+			result.push(modifier_normal(elem));
+		}
+	});
+
+	// 2nd pass: Occasional duplications.
+	_.each(array, function(elem) {
+		if(Math.random() < 0.01) {
+			result.push(modifier_dup(elem));
+		}
+	});
+
+	return result;
+};
+
 
 // Collections of cells that forms a "single" plant.
 // This is not biologically accurate depiction of plants,
@@ -54,7 +163,7 @@ var convertCellTypeToColor = function(type) {
 // (n.b. energy = power * time)
 //
 // position :: THREE.Vector3<World>
-var Plant = function(position, unsafe_chunk, energy, plant_id) {
+var Plant = function(position, unsafe_chunk, energy, genome, plant_id) {
 	this.unsafe_chunk = unsafe_chunk;
 
 	// tracer
@@ -67,6 +176,10 @@ var Plant = function(position, unsafe_chunk, energy, plant_id) {
 	// biophysics
 	this.energy = energy;
 	this.seed = new Cell(this, CellType.SHOOT_END);
+	//this.seed.loc_to_parent = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.random() * 2 * Math.PI);
+
+	// genetics
+	this.genome = genome;
 };
 
 Plant.prototype.step = function() {
@@ -76,7 +189,13 @@ Plant.prototype.step = function() {
 		cell.step();
 		_.each(cell.children, step_cell_recursive);
 	}
-	step_cell_recursive(this.seed);
+	try {
+		step_cell_recursive(this.seed);
+	} catch(e) {
+		// Terminate invalid cell
+		// TODO: this shouldn't happen.
+		this.seed.energy = -1e-3;
+	}
 
 	console.assert(this.seed.age === this.age);
 
@@ -135,6 +254,10 @@ Plant.prototype.get_stat = function() {
 	return stat;
 };
 
+Plant.prototype.get_genome = function() {
+	return this.genome.discrete;
+};
+
 Plant.prototype._powerForPlant = function() {
 	var sum_power_cell_recursive = function(cell) {
 		return cell.powerForPlant() +
@@ -174,7 +297,11 @@ var Cell = function(plant, cell_type) {
 // sub_cell :: Cell
 // return :: ()
 Cell.prototype.add = function(sub_cell) {
-	this.children.push(sub_cell);
+	if(this === sub_cell) {
+		throw new Error("Tried to add itself as child.", sub_cell);
+	} else {
+		this.children.push(sub_cell);
+	}
 };
 
 // Return net usable power for Plant.
@@ -210,9 +337,11 @@ Cell.prototype._updatePowerForPlant = function() {
 
 // return :: ()
 Cell.prototype.step = function() {
+	var _this = this;
 	this.age += 1;
 
 	// Grow continually.
+	// TODO: these should also be included in Genome, but keep it as is.
 	if(this.cell_type === CellType.FLOWER) {
 		this.sx = Math.min(10e-3, this.sx + 0.1e-3);
 		this.sy = Math.min(10e-3, this.sy + 0.1e-3);
@@ -226,24 +355,43 @@ Cell.prototype.step = function() {
 		this.sy = Math.min(5e-3, this.sy + 0.1e-3 * this.plant.growth_factor());
 		this.sz += 3e-3 * this.plant.growth_factor();
 	}
-	
-	// Divide.
-	var z_x = Math.random();
-	if(z_x < this.plant.growth_factor()) {
-		if(this.cell_type === CellType.SHOOT_END) {
-			var z = Math.random();
-			if(z < 0.1) {
-				this.add_shoot_cont(false);
-				this.add_leaf_cont();
-				this.cell_type = CellType.SHOOT;
-			} else if(z < 0.2) {
-				this.add_shoot_cont(false);
-				this.add_shoot_cont(true);
-				this.cell_type = CellType.SHOOT;
+
+	var rule_differentiate = this.plant.genome.discrete;
+
+	function calc_prob(when) {
+		var prob = 1;
+		_.each(when, function(term) {
+			if(term === CellType.HALF) {
+				prob *= 0.5;
+			} else if(term === CellType.GROWTH_FACTOR) {
+				prob *= _this.plant.growth_factor();
+			} else if(term === CellType.ANTI_GROWTH_FACTOR) {
+				prob *= 1 - _this.plant.growth_factor();
+			} else if(term === _this.cell_type) {
+				prob *= 1;
+			} else {
+				prob *= 0;
 			}
-		}
+		});
+		return prob;
 	}
 
+	_.each(rule_differentiate, function(clause) {
+		if(calc_prob(clause['when']) > Math.random()) {
+			_.each(clause['produce'], function(diff) {
+				if(diff === Differentiation.SHOOT_MAIN) {
+					_this.add_shoot_cont(false);
+				} else if(diff === Differentiation.SHOOT_SUB) {
+					_this.add_shoot_cont(true);
+				} else if(diff === Differentiation.LEAF) {
+					_this.add_leaf_cont();
+				}
+			});
+			_this.cell_type = clause['become'];
+		}
+	});
+
+	// Physics
 	if(this.cell_type === CellType.FLOWER) {
 		// Disperse seed once in a while.
 		// TODO: this should be handled by physics, not biology.
@@ -251,18 +399,14 @@ Cell.prototype.step = function() {
 		if(Math.random() < 0.01) {
 			var seed_energy = Math.min(this.plant.energy, Math.pow(20e-3, 3) * 10);
 
-			this.plant.unsafe_chunk.add_plant(new THREE.Vector3(
-				this.plant.position.x + Math.random() * 1 - 0.5,
-				this.plant.position.y + Math.random() * 1 - 0.5,
-				0
-				), seed_energy);
+			// TODO: should be world coodinate of the flower
+			this.plant.unsafe_chunk.disperse_seed_from(new THREE.Vector3(
+				this.plant.position.x,
+				this.plant.position.y,
+				0.1
+				), seed_energy, this.plant.genome.naturalClone());
 			this.plant.energy -= seed_energy;
 		}
-	}
-
-	// Differentiate.
-	if(this.plant.growth_factor() < 0.1 && this.cell_type === CellType.SHOOT_END) {
-		this.cell_type = CellType.FLOWER;
 	}
 
 	// Update power
@@ -275,6 +419,10 @@ Cell.prototype.materialize = function() {
 	var color_diffuse = new THREE.Color(convertCellTypeToColor(this.cell_type));
 	if(this.photons === 0) {
 		color_diffuse.offsetHSL(0, 0, -0.2);
+	}
+	if(this.plant.energy < 1e-4) {
+		var t = 1 - this.plant.energy * 1e4;
+		color_diffuse.offsetHSL(0, -t, 0);
 	}
 
 	var geom_cube = new THREE.CubeGeometry(this.sx, this.sy, this.sz);
@@ -493,6 +641,7 @@ var Chunk = function(scene) {
 
 	// Soil (Cell sim)
 	this.soil = new Soil(this, this.size);
+	this.seeds = [];
 
 	// Light
 	this.light = new Light(this, this.size);
@@ -502,9 +651,19 @@ var Chunk = function(scene) {
 	this.children = [];
 };
 
-// pos :: THREE.Vector3
+// Add standard plant seed.
+Chunk.prototype.add_default_plant = function(pos) {
+	return this.add_plant(
+		pos,
+		Math.pow(20e-3, 3) * 100, // allow 2cm cube for 100T)
+		new Genome());
+};
+
+// pos :: THREE.Vector3 (z must be 0)
+// energy :: Total starting energy for the new plant.
+// genome :: genome for new plant
 // return :: Plant
-Chunk.prototype.add_plant = function(pos, energy) {
+Chunk.prototype.add_plant = function(pos, energy, genome) {
 	console.assert(Math.abs(pos.z) < 1e-3);
 
 	// Torus-like boundary
@@ -513,11 +672,35 @@ Chunk.prototype.add_plant = function(pos, energy) {
 		(pos.y + 1.5 * this.size) % this.size - this.size / 2,
 		pos.z);
 
-	var shoot = new Plant(pos, this, energy, this.new_plant_id);
+	var shoot = new Plant(pos, this, energy, genome, this.new_plant_id);
 	this.new_plant_id += 1;
 	this.children.push(shoot);
 
 	return shoot;
+};
+
+// pos :: THREE.Vector3
+// return :: ()
+Chunk.prototype.disperse_seed_from = function(pos, energy, genome) {
+	console.assert(pos.z >= 0);
+	// Discard seeds thrown from too low altitude.
+	if(pos.z < 0.01) {
+		return;
+	}
+
+	var angle = Math.PI / 3;
+
+	var sigma = Math.tan(angle) * pos.z;
+
+	// TODO: Use gaussian 
+	var dx = sigma * 2 * (Math.random() - 0.5);
+	var dy = sigma * 2 * (Math.random() - 0.5);
+
+	this.seeds.push({
+		pos: new THREE.Vector3(pos.x + dx, pos.y + dy, 0),
+		energy: energy,
+		genome: genome
+	});
 };
 
 // Plant :: must be returned by add_plant
@@ -552,6 +735,17 @@ Chunk.prototype.get_plant_stat = function(id) {
 	return stat;
 };
 
+// return :: array | null
+Chunk.prototype.get_plant_genome = function(id) {
+	var genome = null;
+	_.each(this.children, function(plant) {
+		if(plant.id === id) {
+			genome = plant.get_genome();
+		}
+	});
+	return genome;
+};
+
 // return :: object (stats)
 Chunk.prototype.step = function() {
 	this.age += 1;
@@ -563,6 +757,11 @@ Chunk.prototype.step = function() {
 	_.each(this.children, function(plant) {
 		plant.step();
 	}, this);
+
+	_.each(this.seeds, function(seed) {
+		this.add_plant(seed.pos, seed.energy, seed.genome);
+	}, this);
+	this.seeds = [];
 	sim_stats['plant/ms'] = now() - t0;
 
 	t0 = now();
@@ -619,7 +818,9 @@ Chunk.prototype.serialize = function() {
 // xs :: [num]
 // return :: num
 function sum(xs) {
-	return _.reduce(xs, function(x, y) { return x + y; }, 0);
+	return _.reduce(xs, function(x, y) {
+		return x + y;
+	}, 0);
 }
 
 this.Chunk = Chunk;
