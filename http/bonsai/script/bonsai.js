@@ -259,7 +259,7 @@ Bonsai.prototype.init = function() {
 				}, 50);
 			}
 		} else if(ev.data.type === 'stat-plant') {
-			$('#info-plant').text(JSON.stringify(ev.data.data.stat, null, 2));
+			_this.updatePlantView(ev.data.data.stat);
 		} else if(ev.data.type === 'genome-plant') {
 			_this.updateGenomeView(ev.data.data.genome);
 		} else if(ev.data.type === 'exception') {
@@ -272,45 +272,68 @@ Bonsai.prototype.init = function() {
 	});
 };
 
+Bonsai.prototype.updatePlantView = function(stat) {
+	$('#info-plant').empty();
+	$('#info-plant').append(JSON.stringify(_.omit(stat, 'cells'), null, 2));
+	$('#info-plant').append($('<br/>'));
+
+	if(stat !== null) {
+		var table = $('<table/>');
+		$('#info-plant').append(table);
+
+		var n_cols = 5;
+		var curr_row = null;
+		_.each(stat['cells'], function(cell_stat, ix) {
+			if(ix % n_cols === 0) {
+				curr_row = $('<tr/>');
+				table.append(curr_row);
+			}
+
+			var stat = {};
+			_.each(cell_stat, function(sig) {
+				if(stat[sig] !== undefined) {
+					stat[sig] += 1;
+				} else {
+					stat[sig] = 1;
+				}
+			});
+
+			var cell_info = $('<div/>');
+			_.each(stat, function(n, sig) {
+				var mult = '';
+				if(n > 1) {
+					mult = '*' + n;
+				}
+				cell_info.append($('<span/>').text(sig + mult));
+			});
+			curr_row.append($('<td/>').append(cell_info));
+		});
+	}
+};
+
 Bonsai.prototype.updateGenomeView = function(genome) {
-	function visualizeCellTag(ix) {
-		var sig_name = CellType.convertToSignalName(ix);
+	function visualizeSignals(sigs) {
+		// Parse signals.
+		var raws = $('<tr/>');
+		var descs = $('<tr/>');
 
-		var element = $('<span/>')
-			.text(sig_name.short)
-			.attr('title', sig_name.long);
+		_.each(sigs, function(sig) {
+			var desc = parseIntrinsicSignal(sig);
 
-		if(sig_name.long === "?") {
-			element.attr('class', 'ct-broken');
-		} else if(sig_name.long === "Half" || sig_name.long === 'Growth' || sig_name.long === '!Growth') {
-			element.attr('class', 'ct-factor');
-		}
-		return element;
-	}
+			var e_raw = $('<td/>').text(desc.raw);
+			e_raw.addClass('ct-' + desc.type);
+			raws.append(e_raw);
 
-	function visualizeDifferentiationTag(ix) {
-		var sig_name = Differentiation.convertToSignalName(ix);
+			var e_desc = $('<td/>').text(desc.long);
+			if(desc.long === '') {
+				e_desc.text(' ');
+			}
+			descs.append(e_desc);
+		});
 
-		var element = $('<span/>')
-			.text(sig_name.short)
-			.attr('title', sig_name.long);
-
-		if(sig_name.long === "?") {
-			element.attr('class', 'ct-broken');
-		}
-		return element;
-	}
-
-	function visualizeRotationTag(ix) {
-		var sig_name = Rotation.convertToSignalName(ix);
-
-		var element = $('<span/>')
-			.text(sig_name.short)
-			.attr('title', sig_name.long);
-
-		if(sig_name.long === "?") {
-			element.attr('class', 'ct-broken');
-		}
+		var element = $('<table/>');
+		element.append(raws);
+		element.append(descs);
 		return element;
 	}
 
@@ -320,44 +343,13 @@ Bonsai.prototype.updateGenomeView = function(genome) {
 		return;
 	}
 
-	_.each(genome.discrete, function(gene) {
+	_.each(genome.unity, function(gene) {
 		var gene_vis = $('<div/>').attr('class', 'gene');
 
 		gene_vis.append(gene["tracer_desc"]);
 		gene_vis.append($('<br/>'));
-		_.each(gene["when"], function(cond) {
-			gene_vis.append(visualizeCellTag(cond));
-		});
-		gene_vis.append("->");
-		gene_vis.append(visualizeCellTag(gene['become']));
-		gene_vis.append("+");
-		_.each(gene["produce"], function(cond) {
-			gene_vis.append(visualizeDifferentiationTag(cond));
-		});
-
-		target.append(gene_vis);
-	});
-
-	_.each(genome.continuous, function(gene) {
-		var gene_vis = $('<div/>').attr('class', 'gene');
-		gene_vis.append(visualizeCellTag(gene["when"]));
-		gene_vis.append(":");
-		gene_vis.append("+[" + gene.dx + "," + gene.dy + "," + gene.dz + "] / ");
-		gene_vis.append("[" + gene.mx + "," + gene.my + "," + gene.mz + "]");
-
-		target.append(gene_vis);
-	});
-
-	_.each(genome.positional, function(gene) {
-		var gene_vis = $('<div/>').attr('class', 'gene');
-
-		gene_vis.append(gene["tracer_desc"]);
-		gene_vis.append($('<br/>'));
-		gene_vis.append(visualizeDifferentiationTag(gene["when"]));
-		gene_vis.append("->");
-		gene_vis.append(visualizeCellTag(gene.produce));
-		gene_vis.append("*");
-		gene_vis.append(visualizeRotationTag(gene.rot));
+		gene_vis.append(visualizeSignals(gene["when"]));
+		gene_vis.append(visualizeSignals(gene["emit"]));
 
 		target.append(gene_vis);
 	});

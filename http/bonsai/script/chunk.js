@@ -30,7 +30,7 @@ var Plant = function(position, unsafe_chunk, energy, genome, plant_id) {
 
 	// biophysics
 	this.energy = energy;
-	this.seed = new Cell(this, CellType.SHOOT_END);
+	this.seed = new Cell(this, Signal.SHOOT_END);
 	//this.seed.loc_to_parent = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.random() * 2 * Math.PI);
 
 	// genetics
@@ -59,10 +59,12 @@ Plant.prototype.step = function() {
 	
 	console.assert(this.seed.age === this.age);
 
+	var mech_valid = this.seed.checkMechanics();
+
 	// Consume/store in-Plant energy.
 	this.energy += this._powerForPlant() * 1;
 
-	if(this.energy <= 0) {
+	if(this.energy <= 0 || !mech_valid) {
 		// die
 		this.unsafe_chunk.remove_plant(this);
 	}
@@ -107,7 +109,22 @@ Plant.prototype.materialize = function(merge) {
 };
 
 Plant.prototype.get_stat = function() {
-	var stat = this.seed.count_type({});
+	var all_cells = [];
+	var collect_cell_recursive = function(cell) {
+		all_cells.push(cell);
+		_.each(cell.children, collect_cell_recursive);
+	}
+	collect_cell_recursive(this.seed);
+
+	var stat_cells = [];
+	_.each(all_cells, function(cell) {
+		stat_cells.push(cell.signals);
+	});
+	
+
+	var stat = {};
+	stat["#cells"] = stat_cells.length;
+	stat['cells'] = stat_cells;
 	stat['age/T'] = this.age;
 	stat['stored/E'] = this.energy;
 	stat['delta/(E/T)'] = this._powerForPlant();
@@ -134,7 +151,7 @@ Plant.prototype._powerForPlant = function() {
 //  Power Consumption:
 //    basic (minimum cell volume equivalent)
 //    linear-volume
-var Cell = function(plant, cell_type) {
+var Cell = function(plant, initial_signal) {
 	// tracer
 	this.age = 0;
 
@@ -148,10 +165,12 @@ var Cell = function(plant, cell_type) {
 	this.sz = 1e-3;
 
 	// in-sim (bio)
-	this.cell_type = cell_type;
 	this.plant = plant;
 	this.children = [];
 	this.power = 0;
+
+	// in-sim (genetics)
+	this.signals = [initial_signal];
 };
 
 Cell.prototype._depth = function(i, ls) {
@@ -192,6 +211,43 @@ Cell.prototype._depth = function(i, ls) {
 	});
 };
 
+// Run pseudo-mechanical stability test based solely
+// on mass and cross-section.
+// return :: valid :: bool
+Cell.prototype.checkMechanics = function() {
+	return this._checkMass().valid;
+};
+
+// return: {valid: bool, total_mass: num}
+Cell.prototype._checkMass = function() {
+	var mass = 1e3 * this.sx * this.sy * this.sz;  // kg
+
+	var total_mass = mass;
+	var valid = true;
+	_.each(this.children, function(cell) {
+		var child_result = cell._checkMass();
+		total_mass += child_result.total_mass;
+		valid &= child_result.valid;
+	});
+
+	// 4mm:30g max
+	// mass[kg] / cross_section[m^2] = 7500.
+	if(total_mass / (this.sx * this.sy) > 7500 * 5) {
+		valid = false;
+	}
+
+	// 4mm:30g * 1cm max
+	// mass[kg]*length[m] / cross_section[m^2] = 75
+	if(total_mass * this.sz / (this.sx * this.sy) > 75 * 5) {
+		valid = false;
+	}
+
+	return {
+		valid: valid,
+		total_mass: total_mass
+	};
+};
+
 // sub_cell :: Cell
 // return :: ()
 Cell.prototype.add = function(sub_cell) {
@@ -208,97 +264,140 @@ Cell.prototype.powerForPlant = function() {
 	return this.power;
 };
 
-Cell.prototype._updatePowerForPlant = function() {
-	var total = 0;
-
-	if(this.cell_type === CellType.LEAF) {
-		total += this.photons * 1e-9 * 4000;
-	}
-
-	// basic consumption (stands for common func.)
-	total -= 1e-9;
-
-	// DNA consumption
-	total -= 1e-9 * this.plant.genome.getComplexity();
-
-	// linear-volume consumption (stands for cell substrate maintainance)
-	var volume_consumption = 1.0;
-	if(this.cell_type === CellType.SHOOT) {
-		volume_consumption = 1;
-	} else {
-		// Functional cells (LEAF, SAM, FLOWER) consume more energy to be alive.
-		// TODO: separate cell traits and cell type
-		volume_consumption = 2;
-	}
-	total -= this.sx * this.sy * this.sz * volume_consumption;
-	
-	this.power = total;
-	this.photons = 0;
+Cell.prototype._beginUsePower = function() {
+	this.power = 0;
 };
+
+// return :: bool
+Cell.prototype._withdrawEnergy = function(amount) {
+	if(this.plant.energy > amount) {
+		this.plant.energy -= amount;
+		this.power -= amount;
+
+		return true;
+	} else {
+		return false;
+	}
+}
+
+Cell.prototype._withdrawVariableEnergy = function(max_amount) {
+	var amount = Math.min(Math.max(0, this.plant.energy), max_amount);
+	this.plant.energy -= amount;
+	this.power -= amount;
+	return amount;
+}
+
+Cell.prototype._withdrawStaticEnergy = function() {
+	var delta_static = 0;
+
+	// +: photo synthesis
+	var efficiency = this._getPhotoSynthesisEfficiency();
+	delta_static += this.photons * 1e-9 * 6000 * efficiency;
+
+	// -: basic consumption (stands for common func.)
+	delta_static -= 10 * 1e-9;
+
+	// -: linear-volume consumption (stands for cell substrate maintainance)
+	var volume_consumption = 1.0;
+	delta_static -= this.sx * this.sy * this.sz * volume_consumption;
+	
+	this.photons = 0;
+
+	if(this.plant.energy < delta_static) {
+		this.plant.energy = -1e-3;  // set death flag (TODO: implicit value encoding is bad idea)
+	} else {
+		this.power += delta_static;
+		this.plant.energy += delta_static;
+	}
+};
+
+Cell.prototype._getPhotoSynthesisEfficiency = function() {
+	// 1:1/2, 2:3/4, etc...
+	var num_chl = sum(_.map(this.signals, function(sig) {
+		return (sig === Signal.CHLOROPLAST) ? 1 : 0;
+	}));
+
+	return 1 - Math.pow(0.5, num_chl);
+}
 
 // return :: ()
 Cell.prototype.step = function() {
 	var _this = this;
 	this.age += 1;
+	this._beginUsePower();
+	this._withdrawStaticEnergy();
 
-	// Grow continually.
-	var rule_growth = this.plant.genome.continuous;
-
-	function calc_growth(desc) {
-		if(desc === "Gr") {
-			return 0.1e-3 * _this.plant.growth_factor();
-		} else if(desc === "Gr30") {
-			return 0.1e-3 * 30 * _this.plant.growth_factor();
+	// Unified genome.
+	function unity_calc_prob_term(signal) {
+		if(signal === Signal.HALF) {
+			return 0.5;
+		} else if(signal === Signal.GROWTH) {
+			return _this.plant.growth_factor();
+		} else if(signal.length >= 2 && signal[0] === Signal.INVERT) {
+			return 1 - unity_calc_prob_term(signal.substr(1));
+		} else if(_.contains(_this.signals, signal)) {
+			return 1;
 		} else {
-			return 0.1e-3 * desc;
+			return 0;
 		}
 	}
 
-	_.each(rule_growth, function(clause) {
-		if(clause["when"] === _this.cell_type) {
-			_this.sx = Math.min(0.1e-3 * clause["mx"], _this.sx + calc_growth(clause["dx"]));
-			_this.sy = Math.min(0.1e-3 * clause["my"], _this.sy + calc_growth(clause["dy"]));
-			_this.sz = Math.min(0.1e-3 * clause["mz"], _this.sz + calc_growth(clause["dz"]));
-		}
-	});
+	function unity_calc_prob(when) {
+		return product(_.map(when, unity_calc_prob_term));
+	}
+	
+	// Gene expression and transcription.
+	_.each(this.plant.genome.unity, function(gene) {
+		if(unity_calc_prob(gene['when']) > Math.random()) {
+			var num_codon = sum(_.map(gene['emit'], function(sig) {
+				return sig.length
+			}));
 
-
-	var rule_differentiate = this.plant.genome.discrete;
-
-	function calc_prob(when) {
-		var prob = 1;
-		_.each(when, function(term) {
-			if(term === CellType.HALF) {
-				prob *= 0.5;
-			} else if(term === CellType.GROWTH_FACTOR) {
-				prob *= _this.plant.growth_factor();
-			} else if(term === CellType.ANTI_GROWTH_FACTOR) {
-				prob *= 1 - _this.plant.growth_factor();
-			} else if(term === _this.cell_type) {
-				prob *= 1;
-			} else {
-				prob *= 0;
+			if(_this._withdrawEnergy(num_codon * 1e-10)) {
+				_this.signals = _this.signals.concat(gene['emit']);
 			}
-		});
-		return prob;
-	}
-
-	_.each(rule_differentiate, function(clause) {
-		if(calc_prob(clause['when']) > Math.random()) {
-			_.each(clause['produce'], function(diff) {
-				_this.add_cont(diff);
-			});
-			_this.cell_type = clause['become'];
 		}
 	});
+
+	// Bio-physics.
+	// TODO: define remover semantics.
+	var removers = {};
+	_.each(this.signals, function(signal) {
+		if(signal.length >= 2 && signal[0] === Signal.REMOVER) {
+			var rm = signal.substr(1);
+			if(removers[rm] !== undefined) {
+				removers[rm] += 1;
+			} else {
+				removers[rm] = 1;
+			}
+		}
+	});
+
+	var new_signals = [];
+	_.each(this.signals, function(signal) {
+		if(signal.length === 3 && signal[0] === Signal.DIFF) {
+			_this.add_cont(signal[1], signal[2]);
+		} else if(signal === Signal.G_DX) {
+			_this.sx += 1e-3;
+		} else if(signal === Signal.G_DY) {
+			_this.sy += 1e-3;
+		} else if(signal === Signal.G_DZ) {
+			_this.sz += 1e-3;
+		} else if(removers[signal] !== undefined && removers[signal] > 0) {
+			removers[signal] -= 1;
+		} else {
+			new_signals.push(signal);
+		}
+	});
+	this.signals = new_signals;
 
 	// Physics
-	if(this.cell_type === CellType.FLOWER) {
+	if(_.contains(this.signals, Signal.FLOWER)) {
 		// Disperse seed once in a while.
 		// TODO: this should be handled by physics, not biology.
 		// Maybe dead cells with stored energy survives when fallen off.
 		if(Math.random() < 0.01) {
-			var seed_energy = Math.min(this.plant.energy, Math.pow(20e-3, 3) * 10);
+			var seed_energy = _this._withdrawVariableEnergy(Math.pow(20e-3, 3) * 10);
 
 			// TODO: should be world coodinate of the flower
 			this.plant.unsafe_chunk.disperse_seed_from(new THREE.Vector3(
@@ -306,18 +405,22 @@ Cell.prototype.step = function() {
 				this.plant.position.y,
 				0.1
 				), seed_energy, this.plant.genome.naturalClone());
-			this.plant.energy -= seed_energy;
 		}
 	}
-
-	// Update power
-	this._updatePowerForPlant();
 };
 
 // return :: THREE.Object3D
 Cell.prototype.materialize = function() {
 	// Create cell object [-sx/2,sx/2] * [-sy/2,sy/2] * [0, sz]
-	var color_diffuse = new THREE.Color(CellType.convertToColor(this.cell_type));
+	var flr_ratio = (_.contains(this.signals, Signal.FLOWER)) ? 0.5 : 1;
+	var chl_ratio = 1 - this._getPhotoSynthesisEfficiency();
+
+	var color_diffuse = new THREE.Color();
+	color_diffuse.setRGB(
+		chl_ratio,
+		flr_ratio,
+		flr_ratio * chl_ratio);
+
 	if(this.photons === 0) {
 		color_diffuse.offsetHSL(0, 0, -0.2);
 	}
@@ -374,7 +477,7 @@ Cell.prototype.get_age = function() {
 // counter :: dict(string, int)
 // return :: dict(string, int)
 Cell.prototype.count_type = function(counter) {
-	var key = CellType.convertToKey(this.cell_type);
+	var key = this.signals[0];
 
 	counter[key] = 1 + (_.has(counter, key) ? counter[key] : 0);
 
@@ -385,26 +488,27 @@ Cell.prototype.count_type = function(counter) {
 	return counter;
 };
 
-// diff :: Differentiation
+// initial :: Signal
+// locator :: LocatorSignal
 // return :: ()
-Cell.prototype.add_cont = function(diff) {
+Cell.prototype.add_cont = function(initial, locator) {
 	function calc_rot(desc) {
-		if(desc === Rotation.CONICAL) {
+		if(desc === Signal.CONICAL) {
 			return new THREE.Quaternion().setFromEuler(new THREE.Euler(
 				Math.random() - 0.5,
 				Math.random() - 0.5,
 				0));
-		} else if(desc === Rotation.HALF_CONICAL) {
+		} else if(desc === Signal.HALF_CONICAL) {
 			return new THREE.Quaternion().setFromEuler(new THREE.Euler(
 				(Math.random() - 0.5) * 0.5,
 				(Math.random() - 0.5) * 0.5,
 				0));
-		} else if(desc === Rotation.FLIP) {
+		} else if(desc === Signal.FLIP) {
 			return new THREE.Quaternion().setFromEuler(new THREE.Euler(
 				-Math.PI / 2,
 				0,
 				0));
-		} else if(desc === Rotation.TWIST) {
+		} else if(desc === Signal.TWIST) {
 			return new THREE.Quaternion().setFromEuler(new THREE.Euler(
 				0,
 				0,
@@ -414,16 +518,10 @@ Cell.prototype.add_cont = function(diff) {
 		}
 	}
 
-	_.each(this.plant.genome.positional, function(clause) {
-		if(clause.when !== diff) {
-			return;
-		}
 
-		var new_cell = new Cell(this.plant, clause.produce);
-		new_cell.loc_to_parent = calc_rot(clause.rot);
-		
-		this.add(new_cell);
-	}, this);
+	var new_cell = new Cell(this.plant, initial);
+	new_cell.loc_to_parent = calc_rot(locator);	
+	this.add(new_cell);
 };
 
 // Represents soil surface state by a grid.
@@ -547,8 +645,8 @@ Light.prototype.updateShadowMapHierarchical = function() {
 		for(var j = 0; j < this.n; j++) {
 			var isect = intersectDown(
 				new THREE.Vector3(
-					(i / this.n - 0.5) * this.size,
-					(j / this.n - 0.5) * this.size,
+					((i + Math.random() - 0.5) / this.n - 0.5) * this.size,
+					((j + Math.random() - 0.5) / this.n - 0.5) * this.size,
 					10),
 				0.1,
 				1e2);
@@ -764,6 +862,14 @@ function sum(xs) {
 	return _.reduce(xs, function(x, y) {
 		return x + y;
 	}, 0);
+}
+
+// xs :: [num]
+// return :: num
+function product(xs) {
+	return _.reduce(xs, function(x, y) {
+		return x * y;
+	}, 1);
 }
 
 this.Chunk = Chunk;
