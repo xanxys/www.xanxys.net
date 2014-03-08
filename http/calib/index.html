@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Webcam Calibrator</title>
+
+  <script src="https://code.jquery.com/jquery-1.11.0.min.js"></script>
+  <script src="./jquery.webcam.js"></script>
+
+  <link rel="stylesheet" href="./jquery.toast.min.css"/>
+  <script src="./jquery.toast.min.js"></script>
+
+  <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css"/>
+  <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css"/>
+  <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+
+  <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js"></script>
+</head>
+<body>
+  <nav class="navbar navbar-default navbar-static-top" role="navigation">
+    <div class="container-fluid">
+      <!-- Brand and toggle get grouped for better mobile display -->
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="#">Webcam Calibrator (PNaCl + OpenCV)</a>
+      </div>
+
+      <!-- Collect the nav links, forms, and other content for toggling -->
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <ul class="nav navbar-nav navbar-right">
+          <li>
+            <a href="https://github.com/xanxys/calibrate-webcam">
+              <img src="GitHub-Mark-32px.png" width="25px" height="25px"/>
+            </a>
+          </li>
+        </ul>
+      </div><!-- /.navbar-collapse -->
+    </div><!-- /.container-fluid -->
+  </nav>
+  
+  <div id="listener">
+    <embed id="calibration_module"
+      width=0 height=0
+      src="calibrate.nmf"
+      type="application/x-pnacl" />
+  </div>
+
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-3">
+        <span id="ui_webcam_status">Searching for a webcam.</span>
+        <div id="video">
+        </div>
+        <span class="label label-info">Mode: 320×240</span>
+        <br/>
+        <br/>
+        <button class="btn btn-primary disabled" id="ui_capture">Capture</button>
+        <br/>
+        <br/>
+        
+        <div class="input-group-lg">
+        <span class="input-group-addon">
+          <span id="ui_num_good">0</span> Good Photos
+        </span>
+          
+          <span class="input-group-btn">
+            <button class="btn btn-primary disabled" id="ui_calibrate">Calibrate</button>
+          </span>
+        </div>
+        
+        <br/>
+        <div id="result">
+        </div>
+      </div>
+    
+      <!-- three modes: 0:loading 1:capturing 2:result -->
+      <div class="col-md-9">
+        <div id="ui_status">
+          Loading PNaCl module.
+          <div class="progress progress-striped active">
+            <div class="progress-bar"  role="progressbar" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100" style="width: 10%">
+            </div>
+          </div>
+        </div>
+        
+        <!-- TODO: adaptive target size -->
+        <div id="ui_target" style="display:none">
+          <img src="check_6x8.png" width="90%"/>
+        </div>
+
+        <div id="ui_result" style="display: none">
+          <h1>Calibration Result</h1>
+          <p>
+          Parameters are compatible with
+          <a href="http://docs.opencv.org/doc/tutorials/calib3d/camera_calibration/camera_calibration.html">OpenCV Camera Model</a>. In fact,  cv::calibrateCamera is used under the hood.
+          </p>
+          
+          <h2>Reprojection Error</h2>
+          <pre id="ui_reproj_error"></pre>
+
+          <h2>Intrinsic Parameters</h2>
+          <pre id="ui_result_json">
+          </pre>
+          
+          <br/>
+          <button id="ui_more" class="btn btn-default">Take More Photos</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="calibrate.js"></script>
+  <script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-12349632-2', 'xanxys.net');
+  ga('send', 'pageview');
+
+</script>
+</body>
+</html>
