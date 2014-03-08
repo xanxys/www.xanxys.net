@@ -14,8 +14,9 @@ div.profile{
     margin: 1em;
     padding: 10px;
     
-    -webkit-border-radius: 5px;
-    -moz-border-radius: 5px;
+    border-radius: 3px;
+    -webkit-border-radius: 3px;
+    -moz-border-radius: 3px;
 }
 
 div.project_group{
@@ -28,8 +29,9 @@ div.project_summary{
     margin: 1em;
     padding: 10px;
     
-    -webkit-border-radius: 5px;
-    -moz-border-radius: 5px;
+    border-radius: 3px;
+    -webkit-border-radius: 3px;
+    -moz-border-radius: 3px;
 }
 
 .project_tag{
