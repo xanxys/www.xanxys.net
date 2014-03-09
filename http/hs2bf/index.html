@@ -46,7 +46,39 @@ h3{
 hs2bf is a <a href="http://haskell.org/">haskell</a> to <a href="http://en.wikipedia.org/wiki/Brainfuck">brainfuck</a> compiler. I believe this is the first attempt to write
 a compiler that can translate a high-level language such as Haskell to brainfuck.
 
-You can download it from <a href="http://hackage.haskell.org/package/hs2bf">hackageDB - hs2bf</a>.
+You can download it from <a href="http://hackage.haskell.org/package/hs2bf">hackageDB</a> or <a href="https://github.com/xanxys/hs2bf">github<a>.
+
+The github repository contains test codes under test/, which show some of
+hs2bf's capability.
+
+<h2>Quick Overview of (Un)supported Features</h2>
+<h3>Supported Language Features</h3>
+<ul>
+<li>Algebraic data type</li>
+<li>Pattern matching</li>
+<li>Case expression</li>
+<li>Lambda expression</li>
+<li>Function declaration</li>
+<li>Infix operators</li>
+<li>Lazy semantics</li>
+<li>Numeric type Byte and some primitive ops</li>
+<li>...</li>
+</ul>
+
+<h3>Supported Runtime System Features</h3>
+<ul>
+<li>Copy Garbage Collection</li>
+<li>1 byte address for heap "nodes"</li>
+</ul>
+
+<h3>Missing Features</h3>
+<ul>
+<li>IO monad</li>
+<li>Type inference and type checking</li>
+<li>class / instance definition</li>
+<li>Proper module system</li>
+<li>Most of Prelude</li>
+</ul>
 
 
 <h1>Supported Code</h1>
