@@ -1,0 +1,16 @@
+#!/bin/fish
+
+mkdir -p build_temp
+rm -rf build_temp/*
+cd build_temp
+
+# www.xanxys.net/calib
+echo "Building calib"
+git clone git@github.com:xanxys/calibrate-webcam.git;
+cd calibrate-webcam
+./make_deploy
+rm -rfv ../../http/calib/*
+cp -Rv build/* ../../http/calib
+cd ..
+
+cd ..
