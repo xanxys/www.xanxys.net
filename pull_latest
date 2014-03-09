@@ -1,5 +1,7 @@
 #!/bin/fish
 
+set ANALYTICS_SNIPPET (cat analytics-snippet)
+
 mkdir -p build_temp
 rm -rf build_temp/*
 cd build_temp
@@ -11,6 +13,9 @@ cd calibrate-webcam
 ./make_deploy
 rm -rfv ../../http/calib/*
 cp -Rv build/* ../../http/calib
+for path in ../../http/calib/**
+  sed --in-place -e "s#<!-- %%\$\$ANALYTICS\$\$%% -->#$ANALYTICS_SNIPPET#" $path
+end
 cd ..
 
 cd ..
