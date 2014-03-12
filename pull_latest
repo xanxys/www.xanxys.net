@@ -1,21 +1,43 @@
 #!/bin/fish
 
+if test -z $argv[1]
+	echo "usage: ./pull_latest <project name> <tag>?"
+	exit
+end
+
 set ANALYTICS_SNIPPET (cat analytics-snippet)
+set WEB_ROOT (pwd)/http
 
 mkdir -p build_temp
 rm -rf build_temp/*
 cd build_temp
 
-# www.xanxys.net/calib
-echo "Building calib"
-git clone git@github.com:xanxys/calibrate-webcam.git;
-cd calibrate-webcam
-./make_deploy
-rm -rfv ../../http/calib/*
-cp -Rv build/* ../../http/calib
-for path in ../../http/calib/**
-  sed --in-place -e "s#<!-- %%\$\$ANALYTICS\$\$%% -->#$ANALYTICS_SNIPPET#" $path
+# www.xanxys.net/bonsai
+if test $argv[1] = bonsai
+	echo "Building Bonsai"
+	git clone git@bitbucket.org:xanxys/bonsai.git
+	cd bonsai
+	rm -rfv $WEB_ROOT/bonsai/*
+	cp -Rv playground/* $WEB_ROOT/bonsai/
+	for path in $WEB_ROOT/bonsai/**
+		sed --in-place -e "s#<!-- %%\$\$ANALYTICS\$\$%% -->#$ANALYTICS_SNIPPET#" $path
+	end
+	cd ..
 end
-cd ..
+
+
+# www.xanxys.net/calib
+if test $argv[1] = calib
+	echo "Building calib"
+	git clone git@github.com:xanxys/calibrate-webcam.git;
+	cd calibrate-webcam
+	./make_deploy
+	rm -rfv $WEB_ROOT/calib/*
+	cp -Rv build/* $WEB_ROOT/calib
+	for path in $WEB_ROOT/calib/**
+	  sed --in-place -e "s#<!-- %%\$\$ANALYTICS\$\$%% -->#$ANALYTICS_SNIPPET#" $path
+	end
+	cd ..
+end
 
 cd ..
