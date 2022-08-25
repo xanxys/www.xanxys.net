@@ -1,11 +1,4 @@
-#!/bin/env fish
+#!/bin/bash
 
 echo "syncing www.xanxys.net (local git -> S3)"
-s3cmd sync --exclude http/public/ --acl-public http/ s3://www.xanxys.net
-# s3cmd setacl --acl-public --recursive s3://www.xanxys.net
-
-
-
-# echo "syncing www.paraether.org"
-# rsync -avz --group=content -e ssh http-pe/* www.xanxys.net:/srv/http-pe/
-
+s3cmd sync --cf-invalidate --exclude http/public/ --acl-public http/ s3://www.xanxys.net
