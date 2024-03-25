@@ -1,4 +1,0 @@
-#!/bin/bash
-
-echo "syncing www.xanxys.net (local git -> S3)"
-s3cmd sync --cf-invalidate --exclude http/public/ --acl-public http/ s3://www.xanxys.net
